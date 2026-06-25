@@ -58,44 +58,6 @@
 
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-
-<!-- ===== FIREBASE SDK ===== -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script>
-// ===== FIREBASE CONFIG =====
-const firebaseConfig = {
-  apiKey: "AIzaSyBnl93Fww63Xp-ArsY90EcB6NFn1xEJT7w",
-  authDomain: "kedai-ikhsan-45e0a.firebaseapp.com",
-  databaseURL: "https://kedai-ikhsan-45e0a-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "kedai-ikhsan-45e0a",
-  storageBucket: "kedai-ikhsan-45e0a.firebasestorage.app",
-  messagingSenderId: "246122646882",
-  appId: "1:246122646882:web:e197409c8ad887ba84303b"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-// ===== FIREBASE HELPERS =====
-// Simpan data ke Firebase
-function fbSaveMenu(menu){
-  db.ref('menuData').set(menu).catch(e => console.warn('FB save menu error:', e));
-}
-function fbSaveSettings(settings){
-  db.ref('settings').set(settings).catch(e => console.warn('FB save settings error:', e));
-}
-// Load data dari Firebase (prioritas tertinggi)
-function fbLoadAll(callback){
-  db.ref('/').once('value').then(snap => {
-    const data = snap.val();
-    callback(data);
-  }).catch(e => {
-    console.warn('FB load error:', e);
-    callback(null);
-  });
-}
-</script>
-<!-- ===== END FIREBASE ===== -->
 <title>Kedai Ikhsan – Pesan Sekarang</title>
 <!-- Exported: 24/6/2026, 03.49.24 -->
 <meta name="version" content="1782247764491">
@@ -1531,78 +1493,36 @@ let ADMIN_PASS = localStorage.getItem('adminPass') || 'admin123';
 let adminLoggedIn = false;
 let currentEditImgId = null;
 
-// Load saved menu - Prioritas: Firebase > exportedMenu > localStorage
+// Load saved menu from localStorage if exists
 (function initFromStorage(){
-  // Coba load dari Firebase dulu (data paling fresh)
-  fbLoadAll(function(fbData){
-    if(fbData && fbData.menuData && Array.isArray(fbData.menuData) && fbData.menuData.length > 0){
-      // Prioritas 1: Data dari Firebase
-      MENU.length = 0;
-      fbData.menuData.forEach(m => MENU.push(m));
-      renderMenu();
-      // Sync ke localStorage juga
-      try { localStorage.setItem('menuData', JSON.stringify(MENU)); } catch(e){}
-    } else if(window.__EXPORTED_MENU__){
-      // Prioritas 2: data tertanam di HTML
-      MENU.length = 0;
-      window.__EXPORTED_MENU__.forEach(m => MENU.push(m));
-      renderMenu();
-      // Upload ke Firebase supaya tersinkron
-      fbSaveMenu(MENU);
-    } else {
-      // Prioritas 3: localStorage
-      const saved = localStorage.getItem('menuData');
-      if(saved){
-        try{
-          const parsed = JSON.parse(saved);
-          MENU.length = 0;
-          parsed.forEach(m => MENU.push(m));
-          renderMenu();
-          fbSaveMenu(MENU);
-        }catch(e){}
-      }
+  // Prioritas 1: data yang tertanam permanen di file HTML hasil export.
+  // Ini tetap jalan walau localStorage gagal/penuh — jadi foto produk tidak akan hilang saat deploy.
+  if(window.__EXPORTED_MENU__){
+    MENU.length = 0;
+    window.__EXPORTED_MENU__.forEach(m => MENU.push(m));
+    renderMenu();
+  } else {
+    // Prioritas 2: data dari localStorage (perubahan yang belum diexport)
+    const saved = localStorage.getItem('menuData');
+    if(saved){
+      try{
+        const parsed = JSON.parse(saved);
+        MENU.length = 0;
+        parsed.forEach(m => MENU.push(m));
+        renderMenu();
+      }catch(e){}
     }
-
-    // Load settings
-    if(fbData && fbData.settings){
-      const s = fbData.settings;
-      if(s.adminWa){ window._ADMIN_WA_OVERRIDE = s.adminWa; try{localStorage.setItem('adminWa',s.adminWa);}catch(e){} }
-      if(s.adminOngkir !== undefined){ window._ONGKIR_OVERRIDE = parseInt(s.adminOngkir); try{localStorage.setItem('adminOngkir',s.adminOngkir);}catch(e){} }
-      if(s.namaKedai){ try{localStorage.setItem('namaKedai',s.namaKedai);}catch(e){} }
-      if(s.statusToko){ try{localStorage.setItem('statusToko',s.statusToko);}catch(e){} }
-      if(s.jamBuka){ try{localStorage.setItem('jamBuka',s.jamBuka);}catch(e){} }
-      if(s.alamatKedai){ try{localStorage.setItem('alamatKedai',s.alamatKedai);}catch(e){} }
-      // Apply settings ke UI
-      applySettingsToUI(s);
-    } else {
-      // Fallback ke exported/localStorage
-      const wa = window.__EXPORTED_SETTINGS__ && window.__EXPORTED_SETTINGS__.adminWa
-        ? window.__EXPORTED_SETTINGS__.adminWa
-        : localStorage.getItem('adminWa');
-      if(wa) { window._ADMIN_WA_OVERRIDE = wa; }
-      const ongkirRaw = window.__EXPORTED_SETTINGS__ && window.__EXPORTED_SETTINGS__.adminOngkir !== undefined
-        ? window.__EXPORTED_SETTINGS__.adminOngkir
-        : localStorage.getItem('adminOngkir');
-      if(ongkirRaw !== null && ongkirRaw !== undefined) { window._ONGKIR_OVERRIDE = parseInt(ongkirRaw); }
-    }
-  });
+  }
+  // Load settings
+  const wa = window.__EXPORTED_SETTINGS__ && window.__EXPORTED_SETTINGS__.adminWa
+    ? window.__EXPORTED_SETTINGS__.adminWa
+    : localStorage.getItem('adminWa');
+  if(wa) { window._ADMIN_WA_OVERRIDE = wa; }
+  const ongkirRaw = window.__EXPORTED_SETTINGS__ && window.__EXPORTED_SETTINGS__.adminOngkir !== undefined
+    ? window.__EXPORTED_SETTINGS__.adminOngkir
+    : localStorage.getItem('adminOngkir');
+  if(ongkirRaw !== null && ongkirRaw !== undefined) { window._ONGKIR_OVERRIDE = parseInt(ongkirRaw); }
 })();
-
-function applySettingsToUI(s){
-  if(s.namaKedai){
-    const brandEl = document.querySelector('.brand');
-    if(brandEl) brandEl.innerHTML = s.namaKedai.replace(/(\S+)\s*(\S+)?/, (m,a,b) => b ? a+' <span>'+b+'</span>' : '<span>'+a+'</span>');
-  }
-  if(s.statusToko){
-    const badgeEl = document.querySelector('.topnav-badge');
-    if(badgeEl){
-      const svgPart = badgeEl.querySelector('svg') ? badgeEl.querySelector('svg').outerHTML : '';
-      badgeEl.innerHTML = svgPart + (s.statusToko === 'buka' ? ' Buka Sekarang' : ' Sedang Tutup');
-    }
-  }
-  if(s.alamatKedai){ const el = document.getElementById('footerAlamat'); if(el) el.textContent = s.alamatKedai; }
-  if(s.jamBuka){ const el = document.getElementById('footerJam'); if(el) el.textContent = 'Jam Buka: ' + s.jamBuka; }
-}
 
 function getEffectiveAdminWa(){ return window._ADMIN_WA_OVERRIDE || ADMIN_WA; }
 function getEffectiveOngkir(){ return window._ONGKIR_OVERRIDE !== undefined ? window._ONGKIR_OVERRIDE : ONGKIR; }
@@ -1805,7 +1725,6 @@ function adminSaveMenu(){
     if(inpPrice) item.harga = parseInt(inpPrice.value) || item.harga;
   });
   localStorage.setItem('menuData', JSON.stringify(MENU));
-  fbSaveMenu(MENU); // ← simpan ke Firebase
   renderMenu();
   const btn = document.getElementById('btnSaveMenu');
   btn.textContent = '✅ Tersimpan!';
@@ -1840,16 +1759,6 @@ function adminSaveSetting(){
   if(jam) localStorage.setItem('jamBuka', jam);
   if(alamat) localStorage.setItem('alamatKedai', alamat);
   if(passBaru){ ADMIN_PASS = passBaru; localStorage.setItem('adminPass', passBaru); }
-
-  // Simpan settings ke Firebase
-  fbSaveSettings({
-    adminWa: wa || localStorage.getItem('adminWa') || '',
-    adminOngkir: ongkir,
-    namaKedai: nama || localStorage.getItem('namaKedai') || '',
-    statusToko: status,
-    jamBuka: jam || localStorage.getItem('jamBuka') || '',
-    alamatKedai: alamat || localStorage.getItem('alamatKedai') || ''
-  });
 
   // Apply to UI
   if(nama){
